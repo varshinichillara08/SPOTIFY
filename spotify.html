@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Circular+Std:wght@400;500;700&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-base: #121212;
+    --bg-highlight: #1a1a1a;
+    --bg-press: #000;
+    --bg-elevated-base: #242424;
+    --bg-elevated-highlight: #2a2a2a;
+    --bg-tinted-base: rgba(255,255,255,.07);
+    --bg-tinted-highlight: rgba(255,255,255,.1);
+    --text-base: #fff;
+    --text-subdued: #a7a7a7;
+    --text-bright-accent: #1ed760;
+    --essential-bright-accent: #1ed760;
+    --essential-base: #fff;
+    --essential-subdued: #727272;
+    --decorative-subdued: #292929;
+    --sidebar-width: 72px;
+    --now-playing-bar-height: 90px;
+    --top-bar-height: 64px;
+  }
+
+  body {
+    font-family: 'Figtree', 'Circular Std', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-base);
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 1fr var(--now-playing-bar-height);
+    grid-template-columns: var(--sidebar-width) 1fr 350px;
+    grid-template-areas:
+      "sidebar main nowplaying"
+      "npbar npbar npbar";
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    grid-area: sidebar;
+    background: var(--bg-base);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 4px;
+    border-right: 1px solid rgba(255,255,255,.05);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar { display: none; }
+
+  .sidebar-icon {
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px;
+    cursor: pointer;
+    color: var(--text-subdued);
+    transition: color .15s, background .15s;
+    position: relative;
+  }
+  .sidebar-icon:hover { color: var(--text-base); background: var(--bg-tinted-base); }
+  .sidebar-icon.active { color: var(--text-base); }
+  .sidebar-icon svg { width: 24px; height: 24px; }
+
+  .sidebar-divider { width: 40px; height: 1px; background: var(--decorative-subdued); margin: 4px 0; }
+
+  .sidebar-playlist {
+    width: 48px; height: 48px;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .15s;
+    flex-shrink: 0;
+  }
+  .sidebar-playlist:hover { transform: scale(1.05); }
+  .sidebar-playlist img { width: 100%; height: 100%; object-fit: cover; }
+
+  .sidebar-playlist-placeholder {
+    width: 48px; height: 48px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .liked-songs-btn {
+    background: linear-gradient(135deg, #4B0082, #8A2BE2, #1DB954);
+    color: #fff;
+  }
+  .folder-btn { background: var(--bg-elevated-base); color: var(--text-subdued); }
+  .folder-btn:hover { color: var(--text-base); }
+
+  .sidebar-add {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--bg-tinted-base);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text-subdued);
+    transition: background .15s, color .15s, transform .15s;
+  }
+  .sidebar-add:hover { background: var(--bg-tinted-highlight); color: var(--text-base); transform: scale(1.1); }
+
+  /* ── MAIN CONTENT ── */
+  .main {
+    grid-area: main;
+    background: linear-gradient(180deg, #2a1a4e 0%, #1e1040 15%, #121212 40%);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.3) transparent;
+  }
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); border-radius: 3px; }
+
+  /* Top Bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    height: var(--top-bar-height);
+    display: flex; align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    background: linear-gradient(180deg, rgba(42,26,78,.95) 0%, transparent 100%);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-arrows { display: flex; gap: 8px; }
+  .nav-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.7);
+    border: none;
+    color: var(--text-base);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,.1); }
+  .nav-btn svg { width: 16px; height: 16px; }
+
+  .home-btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.7);
+    border: none;
+    color: var(--text-base);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .home-btn.active { background: #fff; color: #000; }
+  .home-btn svg { width: 24px; height: 24px; }
+
+  .search-bar {
+    flex: 1; max-width: 480px;
+    height: 48px;
+    background: var(--bg-elevated-base);
+    border-radius: 500px;
+    display: flex; align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    border: 2px solid transparent;
+    transition: border-color .15s, background .15s;
+    cursor: text;
+  }
+  .search-bar:hover { background: var(--bg-elevated-highlight); }
+  .search-bar:focus-within { border-color: #fff; background: var(--bg-elevated-highlight); }
+  .search-bar input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text-base); font-size: 14px; font-family: inherit;
+  }
+  .search-bar input::placeholder { color: var(--text-subdued); }
+  .search-bar svg { color: var(--text-subdued); flex-shrink: 0; }
+  .search-divider { width: 1px; height: 24px; background: var(--essential-subdued); }
+
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .topbar-icon-btn {
+    width: 32px; height: 32px;
+    background: none; border: none;
+    color: var(--text-subdued);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    transition: color .15s, background .15s;
+  }
+  .topbar-icon-btn:hover { color: var(--text-base); background: var(--bg-tinted-base); }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #535353;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  /* Filter Pills */
+  .filter-pills {
+    display: flex; gap: 8px;
+    padding: 0 24px 16px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    height: 32px; padding: 0 16px;
+    border-radius: 500px;
+    border: none;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    font-family: inherit;
+  }
+  .pill.active { background: #fff; color: #000; }
+  .pill:not(.active) { background: var(--bg-elevated-base); color: var(--text-base); }
+  .pill:not(.active):hover { background: var(--bg-elevated-highlight); }
+
+  /* Quick Picks Grid */
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0 24px 24px;
+  }
+
+  .quick-item {
+    background: var(--bg-tinted-base);
+    border-radius: 6px;
+    display: flex; align-items: center;
+    gap: 12px;
+    height: 56px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background .15s;
+    position: relative;
+  }
+  .quick-item:hover { background: var(--bg-tinted-highlight); }
+  .quick-item:hover .quick-play { opacity: 1; transform: translateY(0); }
+  .quick-item img {
+    width: 56px; height: 56px;
+    object-fit: cover; flex-shrink: 0;
+    border-radius: 4px 0 0 4px;
+  }
+  .quick-item-icon {
+    width: 56px; height: 56px;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    border-radius: 4px 0 0 4px;
+  }
+  .quick-item span { font-size: 13px; font-weight: 700; flex: 1; line-height: 1.3; }
+  .quick-play {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--essential-bright-accent);
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 8px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity .2s, transform .2s;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    flex-shrink: 0;
+  }
+  .quick-play svg { color: #000; margin-left: 2px; }
+
+  /* Section Headers */
+  .section { padding: 0 24px 24px; }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 22px; font-weight: 700; }
+  .show-all {
+    font-size: 12px; font-weight: 700; color: var(--text-subdued);
+    text-decoration: none; letter-spacing: .1em; text-transform: uppercase;
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .show-all:hover { color: var(--text-base); text-decoration: underline; }
+
+  /* Card Grid */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+  }
+  .card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .card-grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+  .card {
+    background: var(--bg-elevated-base);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: background .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover { background: var(--bg-elevated-highlight); }
+  .card:hover .card-play { opacity: 1; transform: translateY(0); }
+
+  .card-img-wrap {
+    width: 100%; padding-bottom: 100%;
+    position: relative; margin-bottom: 12px;
+  }
+  .card-img-wrap.round { border-radius: 50%; overflow: hidden; }
+  .card-img-wrap img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .card-img-wrap.round img { border-radius: 50%; }
+
+  .card-play {
+    position: absolute; right: 8px; bottom: 8px;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--essential-bright-accent);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .card-play svg { color: #000; margin-left: 3px; }
+  .card-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-sub { font-size: 12px; color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
+
+  /* Featured (AR Rahman new release) */
+  .featured-section {
+    padding: 0 24px 32px;
+    display: flex; gap: 24px; align-items: flex-start;
+  }
+  .featured-card {
+    background: var(--bg-elevated-base);
+    border-radius: 8px;
+    padding: 16px;
+    width: 220px; flex-shrink: 0;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .featured-card:hover { background: var(--bg-elevated-highlight); }
+  .featured-img {
+    width: 100%; border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    display: block;
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+  .featured-meta { font-size: 12px; color: var(--text-subdued); margin-top: 12px; margin-bottom: 4px; }
+  .featured-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+  .featured-actions { display: flex; align-items: center; gap: 16px; }
+  .play-btn-big {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--essential-bright-accent);
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(30,215,96,.4);
+    transition: transform .1s, box-shadow .1s;
+  }
+  .play-btn-big:hover { transform: scale(1.06); }
+  .play-btn-big svg { color: #000; margin-left: 4px; }
+  .add-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: none; border: 2px solid var(--essential-subdued);
+    color: var(--text-subdued); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color .15s, color .15s;
+  }
+  .add-btn:hover { border-color: var(--text-base); color: var(--text-base); }
+
+  .made-for { flex: 1; }
+  .made-for-label { font-size: 13px; color: var(--text-subdued); margin-bottom: 2px; }
+  .made-for-name { font-size: 26px; font-weight: 900; margin-bottom: 16px; }
+
+  .daily-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .daily-card {
+    background: var(--bg-elevated-base);
+    border-radius: 8px; overflow: hidden;
+    cursor: pointer; position: relative;
+    transition: background .15s;
+  }
+  .daily-card:hover { background: var(--bg-elevated-highlight); }
+  .daily-card:hover .daily-play { opacity: 1; transform: translateY(0); }
+  .daily-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .daily-badge {
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(0,0,0,.7);
+    border-radius: 4px; padding: 2px 8px;
+    font-size: 11px; font-weight: 700; color: var(--text-subdued);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .daily-badge-num { font-size: 28px; font-weight: 900; color: #fff; }
+  .daily-info { padding: 8px 10px 10px; }
+  .daily-info p { font-size: 11px; color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .daily-play {
+    position: absolute; right: 8px; bottom: 48px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--essential-bright-accent);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(6px);
+    transition: opacity .2s, transform .2s;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .daily-play svg { color: #000; margin-left: 2px; }
+
+  /* Recents row */
+  .recents-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .recent-card {
+    cursor: pointer; position: relative;
+  }
+  .recent-card:hover .card-play { opacity: 1; transform: translateY(0); }
+  .recent-img-wrap { position: relative; border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+  .recent-img-wrap img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+
+  /* ── NOW PLAYING PANEL ── */
+  .now-playing-panel {
+    grid-area: nowplaying;
+    background: #0d0d0d;
+    border-left: 1px solid rgba(255,255,255,.08);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .np-header {
+    padding: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    flex-shrink: 0;
+  }
+  .np-title-link {
+    font-size: 14px; font-weight: 700;
+    color: var(--text-base);
+    text-decoration: underline; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  .np-header-actions { display: flex; gap: 8px; align-items: center; }
+  .np-icon-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: none; border: none; color: var(--text-subdued);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: color .15s, background .15s;
+  }
+  .np-icon-btn:hover { color: var(--text-base); background: var(--bg-tinted-base); }
+
+  .np-art {
+    flex: 1; overflow: hidden; position: relative;
+  }
+  .np-art img {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  .np-art-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 16px;
+    background: linear-gradient(0deg, rgba(0,0,0,.8) 0%, transparent 100%);
+  }
+  .np-song-title {
+    font-size: 18px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .np-artists { font-size: 13px; color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .np-actions {
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .np-add-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: none; border: none; color: var(--text-subdued);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: color .15s;
+  }
+  .np-add-btn:hover { color: var(--text-base); }
+
+  .np-queue {
+    padding: 16px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    flex-shrink: 0;
+  }
+  .np-queue-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .np-queue-empty { color: var(--text-subdued); font-size: 14px; margin-bottom: 12px; }
+  .search-new-btn {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 500px;
+    border: 1px solid var(--essential-subdued);
+    font-size: 13px; font-weight: 700;
+    color: var(--text-base);
+    cursor: pointer;
+    background: none;
+    font-family: inherit;
+    transition: border-color .15s, transform .1s;
+  }
+  .search-new-btn:hover { border-color: var(--text-base); transform: scale(1.02); }
+
+  /* ── NOW PLAYING BAR ── */
+  .now-playing-bar {
+    grid-area: npbar;
+    height: var(--now-playing-bar-height);
+    background: #0d0d0d;
+    border-top: 1px solid rgba(255,255,255,.08);
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    z-index: 200;
+  }
+
+  /* Left: track info */
+  .np-bar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .np-bar-thumb {
+    width: 56px; height: 56px; border-radius: 4px;
+    object-fit: cover; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  }
+  .np-bar-info { min-width: 0; }
+  .np-bar-song { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .np-bar-song:hover { text-decoration: underline; }
+  .np-bar-artist { font-size: 11px; color: var(--text-subdued); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .np-bar-artist:hover { text-decoration: underline; color: var(--text-base); }
+  .np-bar-add {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: none; border: none; color: var(--text-subdued);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: color .15s;
+  }
+  .np-bar-add:hover { color: var(--text-base); }
+
+  /* Center: controls + progress */
+  .np-bar-center { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .np-controls { display: flex; align-items: center; gap: 8px; }
+  .ctrl-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-subdued); display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%;
+    transition: color .15s, transform .1s;
+  }
+  .ctrl-btn:hover { color: var(--text-base); transform: scale(1.08); }
+  .ctrl-btn.active { color: var(--essential-bright-accent); }
+  .ctrl-btn.active::after {
+    content: '';
+    position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--essential-bright-accent);
+  }
+
+  .play-pause-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #fff; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #000;
+    transition: transform .1s;
+  }
+  .play-pause-btn:hover { transform: scale(1.08); }
+  .play-pause-btn svg { width: 16px; height: 16px; }
+
+  .progress-row { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 480px; }
+  .time-label { font-size: 11px; color: var(--text-subdued); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
+  .progress-bar { flex: 1; height: 4px; background: rgba(255,255,255,.3); border-radius: 2px; cursor: pointer; position: relative; }
+  .progress-fill { width: 1.4%; height: 100%; background: #fff; border-radius: 2px; position: relative; transition: width .1s; }
+  .progress-fill::after {
+    content: '';
+    position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px; border-radius: 50%; background: #fff;
+    opacity: 0; transition: opacity .15s;
+  }
+  .progress-bar:hover .progress-fill { background: var(--essential-bright-accent); }
+  .progress-bar:hover .progress-fill::after { opacity: 1; }
+
+  /* Right: extra controls */
+  .np-bar-right { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .vol-bar { width: 80px; height: 4px; background: rgba(255,255,255,.3); border-radius: 2px; cursor: pointer; position: relative; }
+  .vol-fill { width: 100%; height: 100%; background: #fff; border-radius: 2px; }
+  .vol-bar:hover .vol-fill { background: var(--essential-bright-accent); }
+
+  /* Playlist cover images – placeholder gradients */
+  .grad-1 { background: linear-gradient(135deg, #2d46b9, #1ed760); }
+  .grad-2 { background: linear-gradient(135deg, #e8115b, #121212); }
+  .grad-3 { background: linear-gradient(135deg, #8400e7, #e8115b); }
+  .grad-4 { background: linear-gradient(135deg, #1e3264, #e91429); }
+  .grad-5 { background: linear-gradient(135deg, #e13300, #e8115b); }
+  .grad-6 { background: linear-gradient(135deg, #056952, #1ed760); }
+  .grad-7 { background: linear-gradient(135deg, #e8115b, #ff4632); }
+  .grad-8 { background: linear-gradient(135deg, #148a08, #1ed760); }
+
+  /* Placeholder image with gradient */
+  .img-placeholder { width: 100%; height: 100%; border-radius: inherit; }
+
+  /* Daily mix label overlay */
+  .daily-mix-overlay {
+    position: absolute;
+    bottom: 4px; left: 4px;
+    display: flex; align-items: flex-end; gap: 4px;
+  }
+  .daily-mix-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.7); letter-spacing: .05em; }
+  .daily-mix-num { font-size: 28px; font-weight: 900; color: #fff; line-height: 1; }
+
+  /* Radio cards big */
+  .radio-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .radio-card {
+    border-radius: 8px; padding: 16px;
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: transform .15s;
+    aspect-ratio: 1;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .radio-card:hover { transform: scale(1.03); }
+  .radio-card:hover .card-play { opacity: 1; transform: translateY(0); }
+  .radio-card-name { font-size: 18px; font-weight: 900; }
+  .radio-card-sub { font-size: 11px; color: rgba(255,255,255,.7); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .radio-badge {
+    position: absolute; top: 8px; left: 8px;
+    width: 24px; height: 24px;
+  }
+
+  .section-sublabel { font-size: 13px; color: var(--text-subdued); margin-bottom: 16px; margin-top: -12px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); }
+
+  /* Animated progress */
+  @keyframes progress { from { width: 1.4%; } to { width: 3%; } }
+
+  /* Big Feature Cards */
+  .big-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .big-card {
+    border-radius: 12px;
+    min-height: 200px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    transition: transform .2s;
+  }
+  .big-card:hover { transform: scale(1.015); }
+  .big-card:hover .big-card-actions { opacity: 1; }
+
+  .big-card-badge {
+    position: absolute;
+    top: 16px; left: 16px;
+    z-index: 2;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.6);
+  }
+
+  .big-card-overlay {
+    margin-top: auto;
+    z-index: 2;
+    position: relative;
+  }
+
+  .big-card-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    background: #1ed760;
+    color: #000;
+    border-radius: 2px;
+    padding: 2px 6px;
+    margin-bottom: 6px;
+  }
+
+  .big-card-title {
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  }
+
+  .big-card-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,.7);
+    margin-bottom: 8px;
+  }
+
+  .big-card-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,.6);
+    line-height: 1.4;
+    max-width: 80%;
+  }
+
+  .big-card-actions {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .big-card:hover .big-card-actions { opacity: 1; }
+
+  .big-card-play-btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--essential-bright-accent);
+    border: none;
+    color: #000;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    transition: transform .15s, background .15s;
+    flex-shrink: 0;
+    margin-left: 2px;
+  }
+  .big-card-play-btn:hover { transform: scale(1.08); background: #1fdf64; }
+
+  .big-card-preview-btn {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 500px;
+    background: rgba(0,0,0,.5);
+    border: 1px solid rgba(255,255,255,.3);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: background .15s, border-color .15s;
+  }
+  .big-card-preview-btn:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.6); }
+
+  .big-card-icon-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.4);
+    border: 1px solid rgba(255,255,255,.2);
+    color: rgba(255,255,255,.7);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .big-card-icon-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+  <!-- Home -->
+  <div class="sidebar-icon active" title="Home">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33zm-2-1.732a3 3 0 0 1 3 0l7.5 4.33a2 2 0 0 1 1 1.732V21a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6h-3v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.577a2 2 0 0 1 1-1.732l7.5-4.33z"/></svg>
+  </div>
+
+  <!-- Library icon -->
+  <div class="sidebar-icon" title="Your Library">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 22a1 1 0 0 1-1-1V3a1 1 0 0 1 2 0v18a1 1 0 0 1-1 1zM15.5 2.134A1 1 0 0 0 14 3v18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6.464a1 1 0 0 0-.5-.866l-6-3.464zM9 2a1 1 0 0 0-1 1v18a1 1 0 0 0 2 0V3a1 1 0 0 0-1-1z"/></svg>
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <!-- Add -->
+  <div class="sidebar-add" title="Create playlist or folder">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M15.25 8a.75.75 0 0 1-.75.75H8.75v5.75a.75.75 0 0 1-1.5 0V8.75H1.5a.75.75 0 0 1 0-1.5h5.75V1.5a.75.75 0 0 1 1.5 0v5.75h5.75a.75.75 0 0 1 .75.75z"/></svg>
+  </div>
+
+  <!-- Liked songs -->
+  <div class="sidebar-playlist-placeholder liked-songs-btn" style="border-radius:8px;" title="Liked Songs">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.724 4.22A4.313 4.313 0 0 0 12 6.196 4.313 4.313 0 0 0 8.276 4.22a4.313 4.313 0 0 0-4.204 4.32c0 3.94 7.928 11.35 7.928 11.35s7.929-7.41 7.929-11.35a4.313 4.313 0 0 0-4.205-4.32z"/></svg>
+  </div>
+
+  <!-- Folder -->
+  <div class="sidebar-playlist-placeholder folder-btn" title="Folder">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 4a2 2 0 0 1 2-2h5.155a3 3 0 0 1 2.496 1.336l.554.832H21a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V4z"/></svg>
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <!-- Playlist thumbnails -->
+  <div class="sidebar-playlist" title="Peddi All Songs">
+    <div class="img-placeholder grad-2" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">P</div>
+  </div>
+  <div class="sidebar-playlist" title="All Time Top Songs">
+    <div class="img-placeholder grad-1" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">AT</div>
+  </div>
+  <div class="sidebar-playlist" title="Daily Mix 1">
+    <div class="img-placeholder grad-3" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">1</div>
+  </div>
+  <div class="sidebar-playlist" title="Playlist">
+    <div class="img-placeholder grad-5" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">♪</div>
+  </div>
+  <div class="sidebar-playlist" title="Playlist">
+    <div class="img-placeholder grad-4" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">♫</div>
+  </div>
+  <div class="sidebar-playlist" title="Playlist">
+    <div class="img-placeholder grad-6" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">♬</div>
+  </div>
+  <div class="sidebar-playlist" title="Playlist">
+    <div class="img-placeholder grad-7" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">★</div>
+  </div>
+  <div class="sidebar-playlist" title="Playlist">
+    <div class="img-placeholder grad-8" style="width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.6);">♩</div>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="main" id="mainContent">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="nav-arrows">
+      <button class="nav-btn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.957 2.793a1 1 0 0 1 0 1.414L8.164 12l7.793 7.793a1 1 0 1 1-1.414 1.414L5.336 12l9.207-9.207a1 1 0 0 1 1.414 0z"/></svg>
+      </button>
+      <button class="nav-btn" style="opacity:.4">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.043 2.793a1 1 0 0 0 0 1.414L15.836 12l-7.793 7.793a1 1 0 1 0 1.414 1.414L18.664 12 9.457 2.793a1 1 0 0 0-1.414 0z"/></svg>
+      </button>
+    </div>
+
+    <button class="home-btn active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33zm-2-1.732a3 3 0 0 1 3 0l7.5 4.33a2 2 0 0 1 1 1.732V21a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6h-3v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.577a2 2 0 0 1 1-1.732l7.5-4.33z"/></svg>
+    </button>
+
+    <div class="search-bar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10.533 1.279c-5.18 0-9.407 4.227-9.407 9.407 0 5.18 4.227 9.407 9.407 9.407 2.234 0 4.29-.79 5.907-2.097l4.946 4.946a1 1 0 1 0 1.414-1.414l-4.946-4.946A9.367 9.367 0 0 0 19.94 10.686c0-5.18-4.227-9.407-9.407-9.407zm-7.407 9.407a7.407 7.407 0 1 1 14.814 0 7.407 7.407 0 0 1-14.814 0z"/></svg>
+      <div class="search-divider"></div>
+      <input type="text" placeholder="What do you want to play?">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21 2H3v16h5v4l4-4h9V2zm-9 9H7V9h5v2zm0-4H7V5h5v2zm4 4h-2V9h2v2zm0-4h-2V5h2v2z"/></svg>
+    </div>
+
+    <div class="topbar-right">
+      <button class="topbar-icon-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0zM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0zM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122zM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003z"/></svg>
+      </button>
+      <button class="topbar-icon-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5.25 9.375a6.75 6.75 0 0 1 13.5 0v2.625l2.086 4.172A1.5 1.5 0 0 1 19.5 18h-3.085a4.5 4.5 0 0 1-8.83 0H4.5a1.5 1.5 0 0 1-1.336-2.181L5.25 12V9.375zM12 19.5a3 3 0 0 0 2.8-1.9H9.2a3 3 0 0 0 2.8 1.9z"/></svg>
+      </button>
+      <div class="avatar">I</div>
+    </div>
+  </div>
+
+  <!-- Filter Pills -->
+  <div class="filter-pills">
+    <button class="pill active">All</button>
+    <button class="pill">Music</button>
+    <button class="pill">Podcasts</button>
+  </div>
+
+  <!-- Quick Access Grid -->
+  <div class="quick-grid">
+    <div class="quick-item">
+      <div class="quick-item-icon liked-songs-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M15.724 4.22A4.313 4.313 0 0 0 12 6.196 4.313 4.313 0 0 0 8.276 4.22a4.313 4.313 0 0 0-4.204 4.32c0 3.94 7.928 11.35 7.928 11.35s7.929-7.41 7.929-11.35a4.313 4.313 0 0 0-4.205-4.32z"/></svg>
+      </div>
+      <span>Liked Songs</span>
+      <div class="quick-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+    </div>
+    <div class="quick-item">
+      <div class="quick-item-icon" style="background:linear-gradient(135deg,#e13300,#e8115b);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 6l10 6-10 6V6z"/></svg>
+      </div>
+      <span>Peddi All Songs [Hindi]</span>
+      <div class="quick-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+    </div>
+    <div class="quick-item">
+      <div class="quick-item-icon grad-3" style="border-radius:4px 0 0 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 6l10 6-10 6V6z"/></svg>
+      </div>
+      <span>Raga of Revenge</span>
+      <div class="quick-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+    </div>
+    <div class="quick-item">
+      <div class="quick-item-icon grad-4" style="border-radius:4px 0 0 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 6l10 6-10 6V6z"/></svg>
+      </div>
+      <span>Rai Rai Raa Raa (From "Peddi")</span>
+      <div class="quick-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+    </div>
+    <div class="quick-item">
+      <div class="quick-item-icon grad-2" style="border-radius:4px 0 0 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 6l10 6-10 6V6z"/></svg>
+      </div>
+      <span>Peddi (TELUGU)</span>
+      <div class="quick-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+    </div>
+    <div class="quick-item">
+      <div class="quick-item-icon grad-5" style="border-radius:4px 0 0 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 6l10 6-10 6V6z"/></svg>
+      </div>
+      <span>Verappa – Extended</span>
+      <div class="quick-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+    </div>
+  </div>
+
+  <!-- New Release + Made For -->
+  <div class="featured-section">
+    <!-- AR Rahman New Release -->
+    <div>
+      <div style="font-size:13px;color:var(--text-subdued);margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+        <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;">
+          <div class="grad-6" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">AR</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-subdued);">New release from</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text-base);">A.R. Rahman</div>
+        </div>
+      </div>
+      <div class="featured-card" style="width:200px;">
+        <div style="width:100%;aspect-ratio:1;border-radius:6px;overflow:hidden;margin-bottom:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+          <div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460,#e94560);display:flex;align-items:flex-end;padding:10px;">
+            <div style="color:#f4d03f;font-family:serif;font-size:18px;font-style:italic;font-weight:700;line-height:1.2;">Kadhal<br>Maname</div>
+          </div>
+        </div>
+        <div class="featured-meta">Album • A.R. Rahman,...</div>
+        <div class="featured-title">Kadhal Maname</div>
+        <div class="featured-actions">
+          <button class="play-btn-big">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>
+          </button>
+          <button class="add-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533zM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Made For + Daily Mixes -->
+    <div class="made-for" style="flex:1;">
+      <div class="section-header">
+        <div>
+          <div class="made-for-label">Made For</div>
+          <div class="made-for-name">Varshini</div>
+        </div>
+        <a class="show-all">Show all</a>
+      </div>
+      <div class="daily-grid">
+        <!-- Daily Mix 2 -->
+        <div class="daily-card">
+          <div style="position:relative;">
+            <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#ff6b35,#f7931e,#fcee21);display:flex;align-items:center;justify-content:center;">
+              <div style="width:70%;height:70%;border-radius:50%;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.5);">
+                <div class="grad-3" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">HJ</div>
+              </div>
+            </div>
+            <div class="daily-mix-overlay">
+              <span class="daily-mix-label">Daily Mix</span>
+              <span class="daily-mix-num">02</span>
+            </div>
+            <div class="daily-play"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+          </div>
+          <div class="daily-info"><p>Harris Jayaraj, A.R. Rahman, Anirudh...</p></div>
+        </div>
+        <!-- Daily Mix 3 -->
+        <div class="daily-card">
+          <div style="position:relative;">
+            <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#8400e7,#1ed760);display:flex;align-items:center;justify-content:center;">
+              <div style="width:70%;height:70%;border-radius:50%;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.5);">
+                <div class="grad-1" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">PR</div>
+              </div>
+            </div>
+            <div class="daily-mix-overlay">
+              <span class="daily-mix-label">Daily Mix</span>
+              <span class="daily-mix-num">03</span>
+            </div>
+            <div class="daily-play"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+          </div>
+          <div class="daily-info"><p>Pritam, A.R. Rahman, Vishal-Shekhar...</p></div>
+        </div>
+        <!-- Daily Mix 4 -->
+        <div class="daily-card">
+          <div style="position:relative;">
+            <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#ff4632,#ff6b35,#fcee21);display:flex;align-items:center;justify-content:center;">
+              <div style="width:70%;height:70%;border-radius:50%;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.5);">
+                <div class="grad-7" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">HJ</div>
+              </div>
+            </div>
+            <div class="daily-mix-overlay">
+              <span class="daily-mix-label">Daily Mix</span>
+              <span class="daily-mix-num">04</span>
+            </div>
+            <div class="daily-play"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+          </div>
+          <div class="daily-info"><p>Harris Jayaraj, A.R. Rahman, Anirudh...</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recents -->
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Recents</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="recents-grid">
+      <div class="card">
+        <div class="card-img-wrap recent-img-wrap">
+          <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#1a1a1a,#333,#1a0a0a);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#c0392b;font-family:serif;letter-spacing:-1px;border-radius:4px;">PEDDI</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Peddi All Songs...</div>
+        <div class="card-sub">Playlist • Ashna</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap recent-img-wrap">
+          <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#0d0d0d,#2d1b0e,#1a0a0a);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#e8a000;font-family:serif;border-radius:4px;">PEDDI</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Peddi (TELUGU)</div>
+        <div class="card-sub">Album • A.R. Rahman...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap recent-img-wrap">
+          <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#1a1a2e,#16213e,#e94560);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;border-radius:4px;text-align:center;padding:8px;">Raga of<br>Revenge</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Raga of Revenge...</div>
+        <div class="card-sub">Album • Anirudh...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap recent-img-wrap">
+          <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#1a2a1a,#2d4a2d,#e8c000);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;border-radius:4px;text-align:center;padding:8px;">Love Insurance<br>Kompany</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Love Insurance...</div>
+        <div class="card-sub">Album • Anirudh...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap recent-img-wrap">
+          <div style="width:100%;aspect-ratio:1;background:linear-gradient(135deg,#0a0a0a,#1a0a0a,#c0392b);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;border-radius:4px;text-align:center;padding:8px;">Rai Rai<br>Raa Raa</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Rai Rai Raa Raa...</div>
+        <div class="card-sub">Album • A.R. Rahman...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap recent-img-wrap">
+          <div style="width:100%;aspect-ratio:1;" class="grad-3">
+            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:rgba(255,255,255,.6);">Daily Mix 1</div>
+          </div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Daily Mix 1</div>
+        <div class="card-sub">Playlist • Spotify</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jump Back In -->
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Jump back in</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="card-grid card-grid-5" style="grid-template-columns:repeat(5,1fr);">
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1a1a2e,#2d2d54);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#e8c000;">RAMA</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Rama Theme</div>
+        <div class="card-sub">Hans Zimmer, A.R. Rahman</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0d1117,#2d1b4e);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#e8c000;text-align:center;padding:8px;">Tere Ishk<br>Mein</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Tere Ishk Mein</div>
+        <div class="card-sub">A.R. Rahman, Irshad Kamil</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#e8a000,#c0392b);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;text-align:center;padding:8px;">Dheema<br>Telugu</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Dheema</div>
+        <div class="card-sub">Anirudh, Sri Sai Kiran</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#c0392b,#900);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;text-align:center;padding:8px;">HOT HITS<br>TAMIL</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Hot Hits Tamil</div>
+        <div class="card-sub">Tune into the Hottest...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1a1a1a,#333);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#aaa;text-align:center;padding:8px;">Bheegi<br>Bheegi</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Bheegi Bheegi</div>
+        <div class="card-sub">A.R. Ameen, A.R. Rahman...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Albums you might like -->
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Albums featuring songs you like</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="card-grid card-grid-5" style="grid-template-columns:repeat(5,1fr);">
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,#2d4a2d,#1a2a1a);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;font-family:serif;">Kadali</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Kadali</div>
+        <div class="card-sub">A.R. Rahman</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0d0d0d,#1a0a0a);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;font-family:serif;">Anjali</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Anjali</div>
+        <div class="card-sub">Ilaiyaraaja</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1a0a2e,#4a1a6e);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;font-family:serif;">Karuppu</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Karuppu</div>
+        <div class="card-sub">Sai Abhyankkar</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#c0392b,#900,#600);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;font-family:serif;">Bombay</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Bombay</div>
+        <div class="card-sub">Various Artists</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#fff8e7,#f4d03f,#e8a000);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#1a1a1a;text-align:center;padding:8px;">Elegies of<br>Maestro<br>Ilaiyaraaja</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Elegies of Maestro Ilaiyaraaja</div>
+        <div class="card-sub">Ilaiyaraaja</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommended Stations -->
+  <div class="section">
+    <p class="section-sublabel" style="margin-top:0;margin-bottom:16px;">Non-stop music based on your favorite songs and artists.</p>
+    <div class="section-header">
+      <h2 class="section-title">Recommended Stations</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="radio-grid">
+      <div class="card" style="background:linear-gradient(135deg,#c0392b,#900);">
+        <div class="card-img-wrap round">
+          <div style="position:absolute;inset:0;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">GVP</div>
+        </div>
+        <div class="card-title">G. V. Prakash</div>
+        <div class="card-sub">With Anirudh Ravichander, Sean...</div>
+        <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#1e3264,#4a6fa5);">
+        <div class="card-img-wrap round">
+          <div style="position:absolute;inset:0;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">KT</div>
+        </div>
+        <div class="card-title">Karthik</div>
+        <div class="card-sub">With A.R. Rahman, Anirudh...</div>
+        <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#8400e7,#5b00b5);">
+        <div class="card-img-wrap round">
+          <div style="position:absolute;inset:0;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">GV</div>
+        </div>
+        <div class="card-title">Govind Vasantha</div>
+        <div class="card-sub">With Darbuka Siva, Dhibu...</div>
+        <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#056952,#1ed760);">
+        <div class="card-img-wrap round">
+          <div style="position:absolute;inset:0;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">VS</div>
+        </div>
+        <div class="card-title">Vivek Sagar</div>
+        <div class="card-sub">With Shakthikanth Karthick...</div>
+        <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#e13300,#ff6b35);">
+        <div class="card-img-wrap round">
+          <div style="position:absolute;inset:0;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">AR</div>
+        </div>
+        <div class="card-title">Anirudh Ravichander</div>
+        <div class="card-sub">With Sai Abhyankkar, Leon...</div>
+        <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#2d46b9,#1ed760);">
+        <div class="card-img-wrap round">
+          <div style="position:absolute;inset:0;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">HA</div>
+        </div>
+        <div class="card-title">Hesham Abou</div>
+        <div class="card-sub">With Shakth... Gopi...</div>
+        <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Based on recent listening -->
+  <div class="section">
+    <p class="section-sublabel" style="margin-top:0;">Inspired by your recent activity</p>
+    <div class="section-header">
+      <h2 class="section-title">Based on your recent listening</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="card-grid card-grid-5" style="grid-template-columns:repeat(5,1fr);">
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0a0a0a,#2d2d2d);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;text-align:center;padding:8px;">#GRWM<br>Telugu</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">#GRWM Telugu</div>
+        <div class="card-sub">Get ready to these songs...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#2d4a1a,#4a8a2d);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fcee21;text-align:center;padding:8px;">KOLLYWOOD<br>CREAM</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Kollywood Cream</div>
+        <div class="card-sub">Finest collection of Tamil...</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1a2a4a,#2d4a8a);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;text-align:center;padding:8px;">Feel Good<br>Telugu</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Feel Good Telugu</div>
+        <div class="card-sub">For the times you need to.</div>
+      </div>
+      <div class="card" style="border:2px solid rgba(255,255,255,.1);">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#c0392b,#e8a000);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;text-align:center;padding:8px;">Hyderabad<br>Hitters</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Hyderabad Hitters</div>
+        <div class="card-sub">Sixer lanti songs, mee kosam!</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0a2a0a,#1a4a1a);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#1ed760;text-align:center;padding:8px;">Cheer for<br>Chennai</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Cheer for Chennai</div>
+        <div class="card-sub">Check out the songs Chennai...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommended for today -->
+  <div class="section">
+    <p class="section-sublabel" style="margin-top:0;">Inspired by your recent activity</p>
+    <div class="section-header">
+      <h2 class="section-title">Recommended for today</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="card-grid card-grid-5" style="grid-template-columns:repeat(5,1fr);">
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#c0392b,#8a0000);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;text-align:center;padding:8px;">ARJUN<br>REDDY</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Arjun Reddy</div>
+        <div class="card-sub">Radhan</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1a1a2e,#2d2d54);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#e8c000;text-align:center;padding:8px;">Idharammayi<br>latho</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Idharammayilatho</div>
+        <div class="card-sub">Devi Sri Prasad</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#2d4a1a,#1a8a4a);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;text-align:center;padding:8px;">Fidaa</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Fidaa</div>
+        <div class="card-sub">Shakthikanth Karthick</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#8a0000,#c0392b);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;text-align:center;padding:8px;">GIRA GIRA<br>GIRA</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Gira Gira Gira</div>
+        <div class="card-sub">Gowtham Bharadwaj</div>
+      </div>
+      <div class="card">
+        <div class="card-img-wrap">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0d1117,#1a2a4a);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;text-align:center;padding:8px;">Taxiwaala</div>
+          <div class="card-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg></div>
+        </div>
+        <div class="card-title">Taxiwaala</div>
+        <div class="card-sub">Jakes Bejoy</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Big Feature Cards -->
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Explore playlists</h2>
+      <a class="show-all">Show all</a>
+    </div>
+    <div class="big-cards-grid">
+      <div class="big-card" style="background: linear-gradient(135deg,#1a1030 0%,#2d1a50 40%,#3d2060 100%);">
+        <div class="big-card-badge">
+          <div style="width:48px;height:48px;border-radius:6px;background:linear-gradient(135deg,#f4d03f,#e8a000);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#000;text-align:center;line-height:1.2;padding:4px;">A.R.<br>RAHMAN</div>
+        </div>
+        <div class="big-card-overlay">
+          <div class="big-card-tag">RADIO</div>
+          <div class="big-card-title">A.R. Rahman Radio</div>
+          <div class="big-card-sub">Playlist • Spotify</div>
+          <div class="big-card-desc">With Unnikrishnan, Pritam, Arijit Singh and more</div>
+        </div>
+        <div class="big-card-actions">
+          <button class="big-card-play-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>
+          </button>
+        </div>
+        <div class="big-card-bg-art" style="background:linear-gradient(160deg,transparent 40%,rgba(60,20,100,.8) 100%);"></div>
+        <div class="big-card-person" style="background:linear-gradient(to top,rgba(30,10,60,.9),transparent);display:flex;align-items:flex-end;">
+          <div style="width:100%;height:100%;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%231a1040%22/><circle cx=%2250%22 cy=%2235%22 r=%2220%22 fill=%22%23333%22/><ellipse cx=%2250%22 cy=%2280%22 rx=%2230%22 ry=%2225%22 fill=%22%23282828%22/></svg>') center/cover no-repeat;opacity:.5;"></div>
+        </div>
+      </div>
+
+      <div class="big-card" style="background: linear-gradient(135deg,#0a1a0a 0%,#1a3020 40%,#0a4a20 100%);">
+        <div class="big-card-badge">
+          <div style="width:48px;height:48px;border-radius:6px;background:linear-gradient(135deg,#1ed760,#056952);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;text-align:center;line-height:1.2;padding:4px;">TAMIL<br>POP</div>
+        </div>
+        <div class="big-card-overlay">
+          <div class="big-card-title">Tamil Pop</div>
+          <div class="big-card-sub">Playlist • Spotify</div>
+          <div class="big-card-desc">Listen to the pop tracks from your favourite artists! Cover: Sai Abhyankkar</div>
+        </div>
+        <div class="big-card-actions">
+          <button class="big-card-preview-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-2-7v-6l6 3-6 3z"/></svg>
+            Preview
+          </button>
+          <button class="big-card-icon-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm8 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
+          </button>
+          <button class="big-card-icon-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm1-11h4v2h-4v4h-2v-4H7v-2h4V7h2v4z"/></svg>
+          </button>
+          <button class="big-card-play-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="big-card" style="background: linear-gradient(135deg,#1a0a0a 0%,#3a1020 40%,#5a0a30 100%);">
+        <div class="big-card-badge">
+          <div style="width:48px;height:48px;border-radius:6px;background:linear-gradient(135deg,#e8115b,#c0392b);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;text-align:center;line-height:1.2;padding:4px;">DAILY<br>MIX 3</div>
+        </div>
+        <div class="big-card-overlay">
+          <div class="big-card-tag" style="background:#e8115b;">DAILY MIX</div>
+          <div class="big-card-title">Daily Mix 3</div>
+          <div class="big-card-sub">Playlist • Spotify</div>
+          <div class="big-card-desc">Pritam, A.R. Rahman, Vishal-Shekhar and more</div>
+        </div>
+        <div class="big-card-actions">
+          <button class="big-card-play-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="big-card" style="background: linear-gradient(135deg,#0a0a2a 0%,#1a1050 40%,#2a1060 100%);">
+        <div class="big-card-badge">
+          <div style="width:48px;height:48px;border-radius:6px;background:linear-gradient(135deg,#2d46b9,#1a2a8a);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;text-align:center;line-height:1.2;padding:4px;">DAILY<br>MIX 4</div>
+        </div>
+        <div class="big-card-overlay">
+          <div class="big-card-tag" style="background:#2d46b9;">DAILY MIX</div>
+          <div class="big-card-title">Daily Mix 4</div>
+          <div class="big-card-sub">Playlist • Spotify</div>
+          <div class="big-card-desc">Harris Jayaraj, A.R. Rahman, Anirudh and more</div>
+        </div>
+        <div class="big-card-actions">
+          <button class="big-card-play-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:32px;"></div>
+</main>
+
+<!-- ── NOW PLAYING PANEL ── -->
+<aside class="now-playing-panel">
+  <div class="np-header">
+    <span class="np-title-link">Maskara (From "Main Vaapas Aaunga")</span>
+    <div class="np-header-actions">
+      <button class="np-icon-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0zM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0zM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122zM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003z"/></svg>
+      </button>
+      <button class="np-icon-btn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 4a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 4a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm2-8h9v1H5V3.5zm0 4h9v1H5V7.5zm0 4h9v1H5v-1z"/></svg>
+      </button>
+      <button class="np-icon-btn" title="Expand">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 3.5h5v1.5H5v4H3.5V3.5zm12 0H21V9h-1.5V5h-4V3.5zM3.5 15.5H5v4h4V21H3.5V15.5zm16 4h-4V21H21v-5.5h-1.5V19.5z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="np-art" style="flex:1;min-height:0;">
+    <!-- Album art as gradient representation of the Maskara song artwork -->
+    <div style="width:100%;height:100%;background:linear-gradient(135deg,#1a0a0a 0%,#2d1a1a 30%,#4a2a2a 60%,#2d1a0a 100%);position:relative;overflow:hidden;">
+      <!-- Decorative overlay simulating the wedding/dance scene -->
+      <div style="position:absolute;inset:0;background:radial-gradient(circle at 60% 40%,rgba(180,120,60,.3) 0%,transparent 60%);"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.2em;text-transform:uppercase;">Now Playing</div>
+        <div style="font-size:48px;color:rgba(255,255,255,.1);">♪</div>
+      </div>
+    </div>
+    <div class="np-art-overlay">
+      <div class="np-song-title">Maskara (From "Main Vaapas Aaunga")</div>
+      <div class="np-artists">A.R. Rahman, Vedang Raina, Nilanjana Ghosh</div>
+    </div>
+  </div>
+
+  <div class="np-actions">
+    <button class="np-add-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533zM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103z"/></svg>
+    </button>
+    <button class="np-add-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm-3.54-4.46a1 1 0 0 1 1.41-1.42 3 3 0 0 0 4.24 0 1 1 0 0 1 1.42 1.42 5 5 0 0 1-7.07 0zM9 11a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm6 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+    </button>
+    <button class="np-add-btn" style="margin-left:auto;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm8 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
+    </button>
+    <button class="np-add-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm1-11h4v2h-4v4h-2v-4H7v-2h4V7h2v4z"/></svg>
+    </button>
+  </div>
+
+  <div class="np-queue">
+    <div class="np-queue-title">Your queue is empty</div>
+    <p class="np-queue-empty">Add songs to your queue.</p>
+    <button class="search-new-btn">Search for something new</button>
+  </div>
+</aside>
+
+<!-- ── NOW PLAYING BAR ── -->
+<footer class="now-playing-bar">
+  <!-- Left: track info -->
+  <div class="np-bar-left">
+    <div style="width:56px;height:56px;border-radius:4px;overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.4);">
+      <div style="width:100%;height:100%;background:linear-gradient(135deg,#1a0a0a,#2d1a1a,#4a2a2a);display:flex;align-items:center;justify-content:center;font-size:20px;color:rgba(255,255,255,.3);">♪</div>
+    </div>
+    <div class="np-bar-info">
+      <div class="np-bar-song">Maskara (From "Main Vaapas Aaunga")</div>
+      <div class="np-bar-artist">A.R. Rahman, Vedang Raina, Nilanjana Ghosh, Irshad Kamil</div>
+    </div>
+    <button class="np-bar-add" title="Add to playlist">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533zM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103z"/></svg>
+    </button>
+  </div>
+
+  <!-- Center: controls + progress -->
+  <div class="np-bar-center">
+    <div class="np-controls">
+      <button class="ctrl-btn" title="Enable shuffle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.9 7.15 20.85 10.1a.5.5 0 0 1 0 .71L17.9 13.76l-1.06-1.06 2.1-2.1H13.5l-3.3 3.3 1.5 1.5H9.26L6 12.5 9.26 9.24l3.3 3.3H14.5l-2.1-2.1L17.9 7.15zM6 4.9l3.24 3.24H9.7l-1.5 1.5L9.26 10.5l1.5-1.5-1.5-1.5H10.7l-3.3-3.3L6 4.9zm7 8.96L11.44 15.4l1.5 1.5.56-.56 2.1-2.1 2.1 2.1 1.06-1.06-3.06-3.06-2.74 2.74z"/></svg>
+      </button>
+      <button class="ctrl-btn" title="Previous">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.3 1a.7.7 0 0 1 .7.7v8.15L21.95 1.544a.7.7 0 0 1 1.05.606v19.7a.7.7 0 0 1-1.05.607L4 13.149V21.3a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7V1.7a.7.7 0 0 1 .7-.7h1.6z"/></svg>
+      </button>
+      <button class="play-pause-btn" id="playBtn" title="Play">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>
+      </button>
+      <button class="ctrl-btn" title="Next">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.7 1a.7.7 0 0 1 .7.7v20.6a.7.7 0 0 1-.7.7h-1.6a.7.7 0 0 1-.7-.7v-8.15L2.05 22.456A.7.7 0 0 1 1 21.85V2.15A.7.7 0 0 1 2.05 1.544L18.4 10.85V1.7a.7.7 0 0 1 .7-.7h1.6z"/></svg>
+      </button>
+      <button class="ctrl-btn" title="Enable repeat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.486 4.841a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 1 1-1.06-1.06L19.19 9.15H8a2.75 2.75 0 0 0-2.75 2.75v2.25a.75.75 0 0 1-1.5 0V11.9A4.25 4.25 0 0 1 8 7.65h11.19l-1.704-1.748a.75.75 0 0 1 0-1.06zm-10.972 8.318a.75.75 0 0 1 0 1.06l-1.704 1.748H16a2.75 2.75 0 0 0 2.75-2.75V11.9a.75.75 0 0 1 1.5 0v1.317A4.25 4.25 0 0 1 16 17.467H4.81l1.704 1.748a.75.75 0 1 1-1.06 1.06l-3-3.056a.75.75 0 0 1 0-1.06l3-3a.75.75 0 0 1 1.06 0z"/></svg>
+      </button>
+    </div>
+    <div class="progress-row">
+      <span class="time-label">0:03</span>
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill" style="width:1.4%;"></div>
+      </div>
+      <span class="time-label">3:53</span>
+    </div>
+  </div>
+
+  <!-- Right: volume + extra -->
+  <div class="np-bar-right">
+    <button class="ctrl-btn" title="Now Playing view">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.875 3C20.601 3 22 4.399 22 6.125v11.75C22 19.601 20.601 21 18.875 21H5.125C3.399 21 2 19.601 2 17.875V6.125C2 4.399 3.399 3 5.125 3H18.875zm0 1.5H5.125A.625.625 0 0 0 4.5 5.125v11.75c0 .345.28.625.625.625H13V4.5h5.875a.625.625 0 0 1 .625.625v11.75a.625.625 0 0 1-.625.625H14.5v1.5h4.375A2.125 2.125 0 0 0 21 17.875V6.125A2.125 2.125 0 0 0 18.875 4.5z"/></svg>
+    </button>
+    <button class="ctrl-btn" title="Queue">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v1.5H3V6zm0 4.5h18V12H3v-1.5zm0 4.5h18v1.5H3V15z"/></svg>
+    </button>
+    <button class="ctrl-btn" title="Connect to device">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 4H2v16h20V4zm-2 2v12H4V6h16zm-7 2.5c-2.481 0-4.5 2.019-4.5 4.5s2.019 4.5 4.5 4.5 4.5-2.019 4.5-4.5-2.019-4.5-4.5-4.5zm0 1.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>
+    </button>
+    <button class="ctrl-btn" title="Mute">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.75l-3.75 3.75H4.5A1.5 1.5 0 0 0 3 9v6a1.5 1.5 0 0 0 1.5 1.5h3.75L12 20.25V3.75zM10.5 7.06v9.88L7.94 14.5H4.5v-5h3.44L10.5 7.06zm7.28.72a.75.75 0 0 1 1.06 1.06 6 6 0 0 1 0 8.5.75.75 0 1 1-1.06-1.06 4.5 4.5 0 0 0 0-6.36.75.75 0 0 1 0-1.06zm-2.12 2.12a.75.75 0 1 1 1.06 1.06 3 3 0 0 1 0 4.24.75.75 0 1 1-1.06-1.06 1.5 1.5 0 0 0 0-2.12.75.75 0 0 1 0-1.06z"/></svg>
+    </button>
+    <div class="vol-bar">
+      <div class="vol-fill" style="width:100%;"></div>
+    </div>
+    <button class="ctrl-btn" title="Mini player">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3v18h18V3zm-2 16H5V5h14v14zm-8-5H7v-2h4V8h2v4h4v2h-4v4h-2v-4z"/></svg>
+    </button>
+    <button class="ctrl-btn" title="Full screen">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 3.5h5V5H5v4H3.5V3.5zm12 0H21V9h-1.5V5h-4V3.5zM3.5 15.5H5v4h4V21H3.5V15.5zm16 4h-4V21H21v-5.5h-1.5V19.5z"/></svg>
+    </button>
+  </div>
+</footer>
+
+<script>
+  // ── TRACK LIBRARY ──────────────────────────────────────────────
+  const tracks = [
+    { title: 'Maskara (From "Main Vaapas Aaunga")', artist: 'A.R. Rahman, Vedang Raina, Nilanjana Ghosh', duration: 233, color: '#1a0a0a,#2d1a1a,#4a2a2a' },
+    { title: 'Liked Songs', artist: 'Your saved tracks', duration: 210, color: '#4B0082,#8A2BE2' },
+    { title: 'Peddi All Songs [Hindi]', artist: 'A.R. Rahman', duration: 198, color: '#e13300,#e8115b' },
+    { title: 'Raga of Revenge', artist: 'Anirudh Ravichander', duration: 245, color: '#8400e7,#e8115b' },
+    { title: 'Rai Rai Raa Raa', artist: 'A.R. Rahman', duration: 187, color: '#1e3264,#e91429' },
+    { title: 'Peddi (TELUGU)', artist: 'A.R. Rahman', duration: 222, color: '#e8115b,#121212' },
+    { title: 'Verappa – Extended', artist: 'Sai Abhyankkar', duration: 260, color: '#e13300,#e8115b' },
+    { title: 'A.R. Rahman Radio', artist: 'Unnikrishnan, Pritam, Arijit Singh', duration: 215, color: '#f4d03f,#e8a000' },
+    { title: 'Tamil Pop', artist: 'Sai Abhyankkar & more', duration: 204, color: '#1ed760,#056952' },
+    { title: 'Daily Mix 3', artist: 'Pritam, A.R. Rahman, Vishal-Shekhar', duration: 231, color: '#e8115b,#c0392b' },
+    { title: 'Daily Mix 4', artist: 'Harris Jayaraj, A.R. Rahman, Anirudh', duration: 219, color: '#2d46b9,#1a2a8a' },
+  ];
+
+  // ── STATE ──────────────────────────────────────────────────────
+  let currentTrack = 0;
+  let playing = false;
+  let muted = false;
+  let volume = 100;
+  let elapsed = 3;
+  let shuffleOn = false;
+  let repeatMode = 0; // 0=off, 1=all, 2=one
+  let progressInterval = null;
+  let liked = new Set();
+
+  // ── DOM REFS ───────────────────────────────────────────────────
+  const playBtn       = document.getElementById('playBtn');
+  const progressBar   = document.getElementById('progressBar');
+  const progressFill  = document.getElementById('progressFill');
+  const volBar        = document.querySelector('.vol-bar');
+  const volFill       = document.querySelector('.vol-fill');
+  const npBarSong     = document.querySelector('.np-bar-song');
+  const npBarArtist   = document.querySelector('.np-bar-artist');
+  const npArtTitle    = document.querySelector('.np-song-title');
+  const npArtArtist   = document.querySelector('.np-artists');
+  const npHeaderLink  = document.querySelector('.np-title-link');
+  const timeLabels    = document.querySelectorAll('.time-label');
+
+  // ── HELPERS ───────────────────────────────────────────────────
+  const PLAY_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7.05 3.606l13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z"/></svg>`;
+  const PAUSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M5.7 3a.7.7 0 0 0-.7.7v16.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V3.7a.7.7 0 0 0-.7-.7H5.7zm10 0a.7.7 0 0 0-.7.7v16.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V3.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>`;
+  const VOL_SVG   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.75l-3.75 3.75H4.5A1.5 1.5 0 0 0 3 9v6a1.5 1.5 0 0 0 1.5 1.5h3.75L12 20.25V3.75zM10.5 7.06v9.88L7.94 14.5H4.5v-5h3.44L10.5 7.06zm7.28.72a.75.75 0 0 1 1.06 1.06 6 6 0 0 1 0 8.5.75.75 0 1 1-1.06-1.06 4.5 4.5 0 0 0 0-6.36.75.75 0 0 1 0-1.06zm-2.12 2.12a.75.75 0 1 1 1.06 1.06 3 3 0 0 1 0 4.24.75.75 0 1 1-1.06-1.06 1.5 1.5 0 0 0 0-2.12.75.75 0 0 1 0-1.06z"/></svg>`;
+  const MUTE_SVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.75l-3.75 3.75H4.5A1.5 1.5 0 0 0 3 9v6a1.5 1.5 0 0 0 1.5 1.5h3.75L12 20.25V3.75zM10.5 7.06v9.88L7.94 14.5H4.5v-5h3.44L10.5 7.06zm5.72 1.16 1.5 1.5 1.5-1.5 1.06 1.06-1.5 1.5 1.5 1.5-1.06 1.06-1.5-1.5-1.5 1.5-1.06-1.06 1.5-1.5-1.5-1.5 1.06-1.06z"/></svg>`;
+  const HEART_SVG      = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.724 4.22A4.313 4.313 0 0 0 12 6.196 4.313 4.313 0 0 0 8.276 4.22a4.313 4.313 0 0 0-4.204 4.32c0 3.94 7.928 11.35 7.928 11.35s7.929-7.41 7.929-11.35a4.313 4.313 0 0 0-4.205-4.32z"/></svg>`;
+  const HEART_SVG_OUT  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.724 4.22A4.313 4.313 0 0 0 12 6.196 4.313 4.313 0 0 0 8.276 4.22a4.313 4.313 0 0 0-4.204 4.32c0 3.94 7.928 11.35 7.928 11.35s7.929-7.41 7.929-11.35a4.313 4.313 0 0 0-4.205-4.32z"/></svg>`;
+
+  function fmt(s) {
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  function showToast(msg, color) {
+    let t = document.getElementById('sp-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'sp-toast';
+      t.style.cssText = 'position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:#282828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;transition:opacity .3s;box-shadow:0 8px 32px rgba(0,0,0,.5);display:flex;align-items:center;gap:8px;';
+      document.body.appendChild(t);
+    }
+    t.innerHTML = (color ? `<span style="color:${color};font-size:16px;">♪</span> ` : '') + msg;
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
+  }
+
+  // ── LOAD TRACK ────────────────────────────────────────────────
+  function loadTrack(idx, autoPlay) {
+    currentTrack = ((idx % tracks.length) + tracks.length) % tracks.length;
+    const t = tracks[currentTrack];
+    elapsed = 0;
+
+    npBarSong.textContent  = t.title;
+    npBarArtist.textContent = t.artist;
+    if (npArtTitle)  npArtTitle.textContent  = t.title;
+    if (npArtArtist) npArtArtist.textContent = t.artist;
+    if (npHeaderLink) npHeaderLink.textContent = t.title;
+
+    // update bar art gradient
+    const barArt = document.querySelector('.np-playing-art');
+    if (barArt) barArt.style.background = `linear-gradient(135deg,${t.color})`;
+
+    updateProgress();
+    if (autoPlay) startPlaying();
+    else stopPlaying();
+  }
+
+  // ── PLAY / PAUSE ──────────────────────────────────────────────
+  function startPlaying() {
+    playing = true;
+    playBtn.innerHTML = PAUSE_SVG;
+    clearInterval(progressInterval);
+    progressInterval = setInterval(() => {
+      elapsed++;
+      const t = tracks[currentTrack];
+      if (elapsed >= t.duration) {
+        elapsed = 0;
+        if (repeatMode === 2) { /* stay */ }
+        else if (repeatMode === 1) loadTrack(currentTrack + 1, true);
+        else { stopPlaying(); elapsed = 0; updateProgress(); return; }
+      }
+      updateProgress();
+    }, 1000);
+  }
+
+  function stopPlaying() {
+    playing = false;
+    playBtn.innerHTML = PLAY_SVG;
+    clearInterval(progressInterval);
+  }
+
+  function updateProgress() {
+    const t = tracks[currentTrack];
+    const pct = (elapsed / t.duration) * 100;
+    progressFill.style.width = pct + '%';
+    if (timeLabels[0]) timeLabels[0].textContent = fmt(elapsed);
+    if (timeLabels[1]) timeLabels[1].textContent = fmt(t.duration);
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (playing) stopPlaying(); else startPlaying();
+  });
+
+  // ── PREV / NEXT ───────────────────────────────────────────────
+  const ctrlBtns = document.querySelectorAll('.ctrl-btn');
+  // Prev = index 1, Next = index 3 in the controls row
+  const npControls = document.querySelector('.np-controls');
+  if (npControls) {
+    const btns = npControls.querySelectorAll('.ctrl-btn');
+    // btns[0]=shuffle, btns[1]=prev, btns[2]=next (playBtn is separate), btns[3]=repeat
+    if (btns[1]) btns[1].addEventListener('click', () => {
+      loadTrack(currentTrack - 1, playing);
+      showToast('Previous track');
+    });
+    if (btns[2]) btns[2].addEventListener('click', () => {
+      loadTrack(currentTrack + 1, playing);
+      showToast('Next track');
+    });
+
+    // Shuffle
+    if (btns[0]) btns[0].addEventListener('click', () => {
+      shuffleOn = !shuffleOn;
+      btns[0].style.color = shuffleOn ? 'var(--essential-bright-accent)' : '';
+      showToast(shuffleOn ? 'Shuffle on' : 'Shuffle off');
+    });
+
+    // Repeat
+    if (btns[3]) btns[3].addEventListener('click', () => {
+      repeatMode = (repeatMode + 1) % 3;
+      const labels = ['Repeat off', 'Repeat all', 'Repeat one'];
+      btns[3].style.color = repeatMode ? 'var(--essential-bright-accent)' : '';
+      showToast(labels[repeatMode]);
+    });
+  }
+
+  // ── PROGRESS BAR (click + drag) ───────────────────────────────
+  function seekTo(e) {
+    const rect = progressBar.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    elapsed = Math.floor(pct * tracks[currentTrack].duration);
+    updateProgress();
+  }
+  let draggingProgress = false;
+  progressBar.addEventListener('mousedown', e => { draggingProgress = true; seekTo(e); });
+  document.addEventListener('mousemove', e => { if (draggingProgress) seekTo(e); });
+  document.addEventListener('mouseup',   () => { draggingProgress = false; });
+
+  // ── VOLUME (click + drag) ─────────────────────────────────────
+  function setVolume(e) {
+    const rect = volBar.getBoundingClientRect();
+    volume = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
+    volFill.style.width = volume + '%';
+    if (volume === 0 && !muted) { muted = true; updateMuteBtn(); }
+    if (volume > 0 && muted)   { muted = false; updateMuteBtn(); }
+  }
+  let draggingVol = false;
+  volBar.addEventListener('mousedown', e => { draggingVol = true; setVolume(e); });
+  document.addEventListener('mousemove', e => { if (draggingVol) setVolume(e); });
+  document.addEventListener('mouseup',   () => { draggingVol = false; });
+
+  // ── MUTE BUTTON ───────────────────────────────────────────────
+  const muteBtn = document.querySelector('.np-bar-right .ctrl-btn[title="Mute"]');
+  function updateMuteBtn() {
+    if (muteBtn) muteBtn.innerHTML = muted ? MUTE_SVG : VOL_SVG;
+  }
+  if (muteBtn) muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    updateMuteBtn();
+    volFill.style.width = muted ? '0%' : volume + '%';
+  });
+
+  // ── LIKE BUTTON (heart on bar) ────────────────────────────────
+  const likeBtn = document.querySelector('.np-bar-add');
+  if (likeBtn) {
+    likeBtn.innerHTML = HEART_SVG_OUT;
+    likeBtn.title = 'Save to liked songs';
+    likeBtn.addEventListener('click', () => {
+      const t = tracks[currentTrack];
+      if (liked.has(currentTrack)) {
+        liked.delete(currentTrack);
+        likeBtn.innerHTML = HEART_SVG_OUT;
+        likeBtn.style.color = '';
+        showToast(`Removed from Liked Songs`);
+      } else {
+        liked.add(currentTrack);
+        likeBtn.innerHTML = HEART_SVG;
+        likeBtn.style.color = 'var(--essential-bright-accent)';
+        showToast(`Added to Liked Songs`, '#1ed760');
+      }
+    });
+  }
+
+  // ── FILTER PILLS ──────────────────────────────────────────────
+  document.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      showToast('Showing: ' + p.textContent);
+    });
+  });
+
+  // ── SIDEBAR ICONS ─────────────────────────────────────────────
+  document.querySelectorAll('.sidebar-icon').forEach(icon => {
+    icon.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-icon').forEach(i => i.classList.remove('active'));
+      icon.classList.add('active');
+    });
+  });
+
+  // ── QUICK ITEMS (play on click) ───────────────────────────────
+  document.querySelectorAll('.quick-item').forEach((item, i) => {
+    item.addEventListener('click', () => {
+      const idx = i + 1; // offset from track 0 (Maskara)
+      loadTrack(idx < tracks.length ? idx : i, true);
+      showToast('Now playing: ' + tracks[currentTrack].title, '#1ed760');
+    });
+  });
+
+  // ── CARD PLAY BUTTONS ─────────────────────────────────────────
+  document.querySelectorAll('.card-play').forEach((btn, i) => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = (i + 3) % tracks.length;
+      loadTrack(idx, true);
+      showToast('Now playing: ' + tracks[currentTrack].title, '#1ed760');
+    });
+  });
+
+  // ── BIG CARD PLAY BUTTONS ─────────────────────────────────────
+  document.querySelectorAll('.big-card-play-btn').forEach((btn, i) => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = 7 + i; // AR Rahman Radio, Tamil Pop, DM3, DM4
+      loadTrack(idx % tracks.length, true);
+      showToast('Now playing: ' + tracks[currentTrack].title, '#1ed760');
+    });
+  });
+
+  // ── QUICK ITEM PLAY BUTTONS ───────────────────────────────────
+  document.querySelectorAll('.quick-play').forEach((btn, i) => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      loadTrack(i + 1, true);
+      showToast('Now playing: ' + tracks[currentTrack].title, '#1ed760');
+    });
+  });
+
+  // ── SEARCH BAR ───────────────────────────────────────────────
+  const searchInput = document.querySelector('.search-bar input');
+  if (searchInput) {
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && searchInput.value.trim()) {
+        showToast('Searching: "' + searchInput.value.trim() + '"');
+      }
+    });
+  }
+
+  // ── SHUFFLE CARDS on card clicks ─────────────────────────────
+  document.querySelectorAll('.card').forEach((card, i) => {
+    card.addEventListener('click', () => {
+      const idx = (i + 2) % tracks.length;
+      loadTrack(idx, true);
+      showToast('Now playing: ' + tracks[currentTrack].title, '#1ed760');
+    });
+  });
+
+  // ── SIDEBAR + LIBRARY ─────────────────────────────────────────
+  document.querySelectorAll('.sidebar-playlist').forEach((pl, i) => {
+    pl.addEventListener('click', () => {
+      loadTrack((i + 3) % tracks.length, true);
+      showToast('Now playing: ' + tracks[currentTrack].title, '#1ed760');
+    });
+  });
+
+  // ── LIKED SONGS shortcut ──────────────────────────────────────
+  document.querySelectorAll('.liked-songs-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      loadTrack(1, true);
+      showToast('Playing Liked Songs', '#1ed760');
+    });
+  });
+
+  // ── HOME BUTTON ───────────────────────────────────────────────
+  document.querySelector('.home-btn')?.addEventListener('click', () => {
+    document.getElementById('mainContent').scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ── NAV ARROWS ───────────────────────────────────────────────
+  const navBtns = document.querySelectorAll('.nav-btn');
+  const scrollHistory = [0];
+  let histPos = 0;
+  if (navBtns[0]) navBtns[0].addEventListener('click', () => {
+    if (histPos > 0) { histPos--; document.getElementById('mainContent').scrollTo({ top: scrollHistory[histPos], behavior: 'smooth' }); }
+  });
+  if (navBtns[1]) navBtns[1].addEventListener('click', () => {
+    if (histPos < scrollHistory.length - 1) { histPos++; document.getElementById('mainContent').scrollTo({ top: scrollHistory[histPos], behavior: 'smooth' }); }
+  });
+  document.getElementById('mainContent')?.addEventListener('scroll', e => {
+    const top = e.target.scrollTop;
+    if (Math.abs(top - scrollHistory[histPos]) > 100) {
+      scrollHistory.splice(histPos + 1);
+      scrollHistory.push(top);
+      histPos = scrollHistory.length - 1;
+    }
+  });
+
+  // ── ADD TO PLAYLIST BUTTONS (np panel) ───────────────────────
+  document.querySelectorAll('.np-add-btn').forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      const msgs = ['Added to playlist!', 'Saved!', 'More options...', 'Added to queue!'];
+      showToast(msgs[i] || 'Done!', '#1ed760');
+    });
+  });
+
+  // ── SHOW ALL links ────────────────────────────────────────────
+  document.querySelectorAll('.show-all').forEach(link => {
+    link.addEventListener('click', () => showToast('Loading all results...'));
+  });
+
+  // ── BIG CARD PREVIEW button ───────────────────────────────────
+  document.querySelectorAll('.big-card-preview-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      showToast('Preview started', '#1ed760');
+      loadTrack(8, true); // Tamil Pop
+    });
+  });
+
+  // ── KEYBOARD SHORTCUTS ───────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); if (playing) stopPlaying(); else startPlaying(); }
+    if (e.code === 'ArrowRight') { elapsed = Math.min(elapsed + 10, tracks[currentTrack].duration - 1); updateProgress(); }
+    if (e.code === 'ArrowLeft')  { elapsed = Math.max(elapsed - 10, 0); updateProgress(); }
+    if (e.code === 'ArrowUp')    { volume = Math.min(volume + 10, 100); volFill.style.width = volume + '%'; }
+    if (e.code === 'ArrowDown')  { volume = Math.max(volume - 10, 0); volFill.style.width = volume + '%'; }
+  });
+
+  // ── INIT ──────────────────────────────────────────────────────
+  loadTrack(0, false);
+  updateProgress();
+</script>
+</body>
+</html>
